@@ -60,3 +60,13 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+
+# macOS
+.DS_Store
+
+# Secrets — service_role key must never be committed
+.env
+.env.*
+Secrets.swift
+*.local.xcconfig
