@@ -15,7 +15,7 @@ architecture unilaterally.
 
 ## Architecture at a glance
 
-* `songs` is the core table. Location lives in a single `geography(Point, 4326)`
+* `song` is the core table. Location lives in a single `geography(Point, 4326)`
   column called `location` — not separate lat/lng. GiST index: `songs_location_idx`.
 * The map reads via a `songs_near(lat, lng, search_radius_m)` RPC that returns
   pins + distance + an `in_range` flag.  *(planned — not built yet)*
@@ -45,7 +45,7 @@ architecture unilaterally.
 
 * No auth, profiles, RLS, or storage policies exist yet. Don't add them
   speculatively.
-* `songs.uploaded_by` is plain `text` for now; it becomes a foreign key to
+* `song.uploaded_by` is plain `text` for now; it becomes a foreign key to
   `auth.users` when signup is built.
 * When auth does land: use  **Supabase Auth** . Never store passwords ourselves.
 
