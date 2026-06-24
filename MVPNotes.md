@@ -1,3 +1,12 @@
+The main Idea of Layer:
+
+This is an iPhone App
+
+The purpose of this is for Artists to drop Songs at Locations that Users can Download if they are within a certain Radius around the Location
+
+
+
+
 MVP
 
 User can See:
@@ -19,7 +28,7 @@ STEP 1:
 
 Backend:
 
-Database
+Database (supabase / postgres)
 
 - Song information
 - song name (string)
@@ -42,6 +51,6 @@ S3 bucket for blob storage
 
 =============================
 
-Once thats setup .... script to pull a song from the DB and write onto the map
+Once thats setup .... script to pull a song from the DB and write onto the app's map!
 
 =======================
