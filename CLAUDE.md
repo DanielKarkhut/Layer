@@ -45,15 +45,13 @@ architecture unilaterally.
 
 * No auth, profiles, RLS, or storage policies exist yet. Don't add them
   speculatively.
-* `song.uploaded_by` is plain `text` for now; it becomes a foreign key to
-  `auth.users` when signup is built.
 * When auth does land: use  **Supabase Auth** . Never store passwords ourselves.
 
 ## Schema source of truth
 
-* Schema is currently built in the Supabase dashboard. Intended convention:
-  `supabase db pull` it into `supabase/migrations/` so git becomes the source of
-  truth. Once that's done, prefer editing migrations over clicking in the UI.
+* Schema is currently built in the Supabase dashboard.
+* Know that for now, we are making changes to the database exclusively in the supabase UI!
+* Eventual intended convention: `supabase db pull` it into `supabase/migrations/` so git becomes the source of truth.
 
 ## Commands
 
