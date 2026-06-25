@@ -8,6 +8,7 @@ architecture unilaterally.
 ## Stack
 
 * iOS: Swift / SwiftUI, MapKit for the map, CoreLocation for user position
+* Supabase client: `supabase-swift` via Swift Package Manager
 * Local store: SwiftData (the "songs I've found" library on-device)
 * Backend: Supabase — Postgres + PostGIS for geo queries, Supabase Storage
   (private `song` bucket) for audio blobs, Supabase Auth
@@ -24,6 +25,12 @@ architecture unilaterally.
   pins + distance + an `in_range` flag.  *(planned — not built yet)*
 * Audio files live in the private `song` Storage bucket; `song.storage_path`
   points at them.
+* Upload MVP is now built in the iOS app:
+  * user signs up/signs in with Supabase Auth
+  * user picks an audio file with `fileImporter`
+  * app uploads to Storage path `{auth.uid()}/{uuid}.{ext}` in bucket `song`
+  * app calls `public.create_song(...)` to create the `song` row
+  * the drop location is the user's current CoreLocation coordinate
 
 ## Critical conventions — get these wrong and things break silently
 
@@ -35,6 +42,9 @@ architecture unilaterally.
   * per-song `radius_m` — tight; "am I close enough to download THIS song"
 * **Expiration is a filter, never a delete.** Query
   `where expires_at is null or expires_at > now()`. Nothing gets destroyed.
+* **Upload path is user-scoped.** Client uploads should stay under
+  `{auth.uid()}/...` in the private `song` bucket. The Storage insert policy
+  and `create_song` RPC both enforce that convention.
 * **The download location gate is server-side and NOT built yet.** Any current
   in-range check is client-side and advisory only — never treat it as security.
   The real gate (an Edge Function / RPC handing back a short-lived signed URL
@@ -47,6 +57,9 @@ architecture unilaterally.
 ## Auth
 
 * Supabase Auth is set up in the dashboard. Never store passwords ourselves.
+* The iOS app uses a Supabase publishable/anon key in
+  `Layer/Layer/SupabaseConfig.swift`. Never put a secret key or legacy
+  `service_role` key in the iOS app.
 * `public.app_users` is the app-facing user table. It has:
   * `id uuid primary key references auth.users(id) on delete cascade`
   * `email text`
@@ -61,23 +74,41 @@ architecture unilaterally.
   `public.app_users(id)` with `on delete cascade`.
 * `song.user_id` should be populated for newly-created songs. Existing songs may
   still need manual ownership assignment before making the column `not null`.
-* RLS policies are intentionally not configured yet. The current remote schema
-  has RLS enabled on `public.song`, but no app-specific RLS policy work has been
-  done. Do not add RLS or storage policies speculatively.
+* `public.song` has RLS enabled. The upload MVP avoids a broad client insert
+  policy by using the `public.create_song(...)` RPC, which validates
+  `auth.uid()`, `storage_path`, `radius_m`, and creates geography server-side.
+* Storage now needs one narrow policy for MVP uploads: authenticated users can
+  insert objects into bucket `song` only under their own user-id folder.
+  Do not add broad Storage select/update/delete policies speculatively.
+
+## Upload setup
+
+* Dashboard SQL for the current upload MVP lives at
+  `supabase/dashboard_sql/song_upload_setup.sql`.
+* The same upload state is captured locally in
+  `supabase/migrations/20260625010000_song_upload_setup.sql`.
+* Run that SQL in the Supabase SQL Editor. It creates/updates:
+  * private Storage bucket `song`
+  * authenticated Storage insert policy for `{auth.uid()}/...`
+  * `public.create_song(name, storage_path, lat, lng, radius_m, expires_at, misc)`
+* `create_song` must keep using `st_makepoint(lng, lat)` and should return the
+  inserted `song.id`.
+* App config lives in `Layer/Layer/SupabaseConfig.swift`; use the Project URL
+  and publishable key from Supabase Dashboard -> Connect or Settings -> API Keys.
 
 ## Schema source of truth
 
 * Schema is currently built in the Supabase dashboard.
 * Know that for now, we are making changes to the database exclusively in the supabase UI!
+* SQL files under `supabase/dashboard_sql/` are paste-ready dashboard helpers.
+  Mirror applied dashboard changes into `supabase/migrations/` so local git
+  still captures the current state.
 * Eventual intended convention: `supabase db pull` it into `supabase/migrations/` so git becomes the source of truth.
 
 ## Commands
 
-<!-- TODO: fill in once the Xcode project and tooling exist, e.g.: -->
-
-<!-- - Build:  xcodebuild -scheme Layer build -->
-
-<!-- - Test:   xcodebuild test -scheme Layer -destination '...' -->
+- Build: `xcodebuild -project Layer/Layer.xcodeproj -scheme Layer -destination 'generic/platform=iOS' build`
+- Test compile: `xcodebuild -project Layer/Layer.xcodeproj -scheme Layer -destination 'generic/platform=iOS' build-for-testing`
 
 <!-- - Lint:   swiftlint -->
 
