@@ -10,13 +10,16 @@ architecture unilaterally.
 * iOS: Swift / SwiftUI, MapKit for the map, CoreLocation for user position
 * Local store: SwiftData (the "songs I've found" library on-device)
 * Backend: Supabase — Postgres + PostGIS for geo queries, Supabase Storage
-  (private `song` bucket) for audio blobs, Supabase Auth (later)
+  (private `song` bucket) for audio blobs, Supabase Auth
 * No separate AWS/S3 — Supabase Storage covers blob storage
 
 ## Architecture at a glance
 
 * `song` is the core table. Location lives in a single `geography(Point, 4326)`
   column called `location` — not separate lat/lng. GiST index: `songs_location_idx`.
+* Auth uses Supabase Auth's `auth.users` table plus a public mirror table:
+  `auth.users.id` -> `public.app_users.id` -> `public.song.user_id`.
+  One app user can own many songs.
 * The map reads via a `songs_near(lat, lng, search_radius_m)` RPC that returns
   pins + distance + an `in_range` flag.  *(planned — not built yet)*
 * Audio files live in the private `song` Storage bucket; `song.storage_path`
@@ -41,11 +44,26 @@ architecture unilaterally.
 * Geography columns and values can't be created or edited in the Table Editor
   grid — use SQL for those (the column, the index, geo inserts).
 
-## Auth — not built yet
+## Auth
 
-* No auth, profiles, RLS, or storage policies exist yet. Don't add them
-  speculatively.
-* When auth does land: use  **Supabase Auth** . Never store passwords ourselves.
+* Supabase Auth is set up in the dashboard. Never store passwords ourselves.
+* `public.app_users` is the app-facing user table. It has:
+  * `id uuid primary key references auth.users(id) on delete cascade`
+  * `email text`
+  * `full_name text`
+  * `created_at timestamptz`
+  * `updated_at timestamptz`
+* `public.app_users` is maintained from `auth.users` by database triggers:
+  * insert trigger creates the matching app user row
+  * update trigger syncs `email` and `full_name`
+  * existing auth users were backfilled into `public.app_users`
+* `public.song.user_id` is a nullable `uuid` foreign key to
+  `public.app_users(id)` with `on delete cascade`.
+* `song.user_id` should be populated for newly-created songs. Existing songs may
+  still need manual ownership assignment before making the column `not null`.
+* RLS policies are intentionally not configured yet. The current remote schema
+  has RLS enabled on `public.song`, but no app-specific RLS policy work has been
+  done. Do not add RLS or storage policies speculatively.
 
 ## Schema source of truth
 
