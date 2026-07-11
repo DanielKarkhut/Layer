@@ -35,6 +35,8 @@ enum SongUploadError: LocalizedError {
     }
 }
 
+/// Talks to Supabase for the upload flow. The mirror image of
+/// `SongMapService`: this writes songs, that one reads them.
 struct SongUploadService {
     private static let maxFileBytes = 50 * 1024 * 1024
 
@@ -44,6 +46,11 @@ struct SongUploadService {
         self.client = client
     }
 
+    /// The whole upload, in two server calls: (1) put the audio file in the
+    /// private `song` Storage bucket under `{your-user-id}/{random}.mp3`,
+    /// (2) call the `create_song` database function, which validates
+    /// everything and inserts the song row at (lat, lng).
+    /// Runs when the Drop tab's Upload button is tapped.
     func uploadSong(
         name: String,
         fileURL: URL,
@@ -91,6 +98,9 @@ struct SongUploadService {
         return UploadedSong(id: songID, storagePath: storagePath)
     }
 
+    /// Reads the picked file's bytes. The "security scope" dance is required
+    /// because the file lives outside our sandbox (Files app, iCloud Drive…)
+    /// and iOS only lends us access to it briefly.
     private func readAudioData(from fileURL: URL) throws -> Data {
         let hasSecurityScope = fileURL.startAccessingSecurityScopedResource()
         defer {
@@ -102,6 +112,9 @@ struct SongUploadService {
         return try Data(contentsOf: fileURL, options: .mappedIfSafe)
     }
 
+    /// Makes sure the picked file really is audio and returns its extension
+    /// ("mp3", "m4a", …) for building the storage path.
+    /// Example: "demo.pdf" → throws; "demo.mp3" → "mp3".
     private func audioFileExtension(for fileURL: URL) throws -> String {
         let fileExtension = fileURL.pathExtension.lowercased()
 
@@ -116,6 +129,8 @@ struct SongUploadService {
         return fileExtension
     }
 
+    /// The content type sent with the upload — the bucket only accepts audio
+    /// MIME types, so this must match. Example: "mp3" → "audio/mpeg".
     private func mimeType(for fileExtension: String) -> String {
         UTType(filenameExtension: fileExtension)?.preferredMIMEType ?? "application/octet-stream"
     }

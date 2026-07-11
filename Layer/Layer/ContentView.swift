@@ -9,6 +9,8 @@ import CoreLocation
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// The app's front door: decides between the config warning, the sign-in
+/// screen, and (once signed in) the main tabbed app.
 struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
 
@@ -18,7 +20,7 @@ struct ContentView: View {
                 if authViewModel.currentUser == nil {
                     AuthView(viewModel: authViewModel)
                 } else {
-                    UploadSongView(authViewModel: authViewModel)
+                    MainTabView(authViewModel: authViewModel)
                 }
             } else {
                 SupabaseConfigurationView()
@@ -27,6 +29,43 @@ struct ContentView: View {
     }
 }
 
+/// The three tabs of the signed-in app: find songs (Map), replay what you
+/// kept (Library), share your own (Drop).
+///
+/// The two `@StateObject`s below are created ONCE here and shared with every
+/// tab via `.environmentObject`, so all screens agree on one audio player and
+/// one location. Example: start a song on the Map, switch to Library, tap a
+/// row — the map's song stops because both tabs use the same `SongPlayer`.
+private struct MainTabView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+
+    @StateObject private var player = SongPlayer()
+    @StateObject private var locationProvider = LocationProvider()
+
+    var body: some View {
+        TabView {
+            MapScreen()
+                .tabItem {
+                    Label("Map", systemImage: "map")
+                }
+
+            LibraryScreen()
+                .tabItem {
+                    Label("Library", systemImage: "music.note.list")
+                }
+
+            UploadSongView(authViewModel: authViewModel)
+                .tabItem {
+                    Label("Drop", systemImage: "icloud.and.arrow.up")
+                }
+        }
+        .environmentObject(player)
+        .environmentObject(locationProvider)
+    }
+}
+
+/// Sign-in / create-account form shown until `AuthViewModel.currentUser`
+/// becomes non-nil.
 private struct AuthView: View {
     @ObservedObject var viewModel: AuthViewModel
 
@@ -97,11 +136,16 @@ private struct AuthView: View {
     }
 }
 
+/// The "Drop" tab: pick an audio file, choose a radius/expiry, and upload the
+/// song pinned to wherever you're standing.
 private struct UploadSongView: View {
     @ObservedObject var authViewModel: AuthViewModel
 
+    // Shared with the Map tab (injected by MainTabView) so both screens use
+    // the same location fix.
+    @EnvironmentObject private var locationProvider: LocationProvider
+
     @StateObject private var uploadViewModel = SongUploadViewModel()
-    @StateObject private var locationProvider = LocationProvider()
     @State private var isShowingFileImporter = false
 
     var body: some View {
@@ -212,6 +256,8 @@ private struct UploadSongView: View {
     }
 }
 
+/// Reusable form footer: gray text for progress/success, red for errors.
+/// Renders nothing at all when both are nil.
 private struct StatusSection: View {
     let message: String?
     let errorMessage: String?
@@ -233,6 +279,8 @@ private struct StatusSection: View {
     }
 }
 
+/// Shown instead of the app when SupabaseConfig.swift still has placeholder
+/// values, so a fresh checkout fails loudly and helpfully.
 private struct SupabaseConfigurationView: View {
     var body: some View {
         NavigationStack {

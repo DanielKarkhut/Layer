@@ -10,9 +10,12 @@ import SwiftData
 
 @main
 struct LayerApp: App {
+    /// The on-device database (SwiftData) that backs the Library tab.
+    /// Every type listed in the Schema gets its own persisted table;
+    /// `isStoredInMemoryOnly: false` means it survives app relaunches.
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            DownloadedSong.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
