@@ -70,3 +70,4 @@ fastlane/test_output
 .env.*
 Secrets.swift
 *.local.xcconfig
+.mcp.json

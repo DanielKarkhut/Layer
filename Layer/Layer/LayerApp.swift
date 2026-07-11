@@ -12,12 +12,35 @@ import SwiftData
 struct LayerApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            DownloadedSong.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let applicationSupportURL = try FileManager.default.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )
+            let didResetLocalLibrary = try LocalLibraryStore.resetIfNeeded(
+                in: applicationSupportURL
+            )
+            let modelConfiguration = ModelConfiguration(
+                "Downloads",
+                schema: schema,
+                url: LocalLibraryStore.storeURL(in: applicationSupportURL)
+            )
+
+            let container = try ModelContainer(
+                for: schema,
+                configurations: [modelConfiguration]
+            )
+
+            if didResetLocalLibrary {
+                LocalLibraryStore.markResetComplete()
+            }
+
+            return container
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }

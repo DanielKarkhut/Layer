@@ -12,9 +12,11 @@ import Foundation
 @MainActor
 final class SongUploadViewModel: ObservableObject {
     @Published var songName = ""
-    @Published var radiusMeters = 100.0
+    @Published var radiusMeters = AppTuning.Upload.defaultRadiusMeters
     @Published var hasExpiration = false
-    @Published var expiresAt = Date().addingTimeInterval(7 * 24 * 60 * 60)
+    @Published var expiresAt = Date().addingTimeInterval(
+        AppTuning.Upload.defaultExpirationDays * 24 * 60 * 60
+    )
     @Published private(set) var selectedFileURL: URL?
     @Published private(set) var selectedFileName = "No file selected"
     @Published private(set) var isUploading = false
@@ -23,6 +25,7 @@ final class SongUploadViewModel: ObservableObject {
 
     private let uploadService: SongUploadService
 
+    /// Creates the upload state manager with the production service or a supplied test service.
     init(uploadService: SongUploadService = SongUploadService()) {
         self.uploadService = uploadService
     }
@@ -33,6 +36,7 @@ final class SongUploadViewModel: ObservableObject {
             && !isUploading
     }
 
+    /// Stores a successfully selected audio-file URL or exposes the import error to the UI.
     func handleFileImport(_ result: Result<URL, any Error>) {
         do {
             let fileURL = try result.get()
@@ -44,6 +48,7 @@ final class SongUploadViewModel: ObservableObject {
         }
     }
 
+    /// Validates the form, uploads the selected audio, and clears the form after success.
     func upload(at location: CLLocation?) async {
         guard !isUploading else { return }
 

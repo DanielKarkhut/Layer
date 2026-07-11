@@ -17,8 +17,13 @@ struct ContentView: View {
             if LayerSupabase.isConfigured {
                 if authViewModel.currentUser == nil {
                     AuthView(viewModel: authViewModel)
+                } else if let userID = authViewModel.currentUserID {
+                    MainTabView(
+                        userID: userID,
+                        authViewModel: authViewModel
+                    )
                 } else {
-                    UploadSongView(authViewModel: authViewModel)
+                    ProgressView()
                 }
             } else {
                 SupabaseConfigurationView()
@@ -97,7 +102,7 @@ private struct AuthView: View {
     }
 }
 
-private struct UploadSongView: View {
+struct UploadSongView: View {
     @ObservedObject var authViewModel: AuthViewModel
 
     @StateObject private var uploadViewModel = SongUploadViewModel()
@@ -121,8 +126,8 @@ private struct UploadSongView: View {
                     Stepper(
                         "Radius: \(Int(uploadViewModel.radiusMeters)) m",
                         value: $uploadViewModel.radiusMeters,
-                        in: 25...1_000,
-                        step: 25
+                        in: AppTuning.Upload.minimumRadiusMeters...AppTuning.Upload.maximumRadiusMeters,
+                        step: AppTuning.Upload.radiusStepMeters
                     )
 
                     Toggle("Expires", isOn: $uploadViewModel.hasExpiration)
