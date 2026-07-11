@@ -9,7 +9,7 @@
         "--project-ref=fccorlnfoegipybtrdfq"
       ],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+        "SUPABASE_ACCESS_TOKEN": "REPLACE_WITH_YOUR_SUPABASE_ACCESS_TOKEN"
       }
     }
   }
