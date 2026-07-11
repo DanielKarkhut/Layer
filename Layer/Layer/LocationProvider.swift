@@ -18,6 +18,7 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
 
     override init() {
         authorizationStatus = manager.authorizationStatus
+        currentLocation = manager.location
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest

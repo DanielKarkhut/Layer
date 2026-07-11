@@ -18,7 +18,7 @@ struct ContentView: View {
                 if authViewModel.currentUser == nil {
                     AuthView(viewModel: authViewModel)
                 } else {
-                    UploadSongView(authViewModel: authViewModel)
+                    LayerHomeView(authViewModel: authViewModel)
                 }
             } else {
                 SupabaseConfigurationView()
@@ -97,7 +97,7 @@ private struct AuthView: View {
     }
 }
 
-private struct UploadSongView: View {
+struct UploadSongView: View {
     @ObservedObject var authViewModel: AuthViewModel
 
     @StateObject private var uploadViewModel = SongUploadViewModel()
@@ -212,7 +212,7 @@ private struct UploadSongView: View {
     }
 }
 
-private struct StatusSection: View {
+struct StatusSection: View {
     let message: String?
     let errorMessage: String?
 
