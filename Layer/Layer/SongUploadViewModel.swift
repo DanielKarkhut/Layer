@@ -9,6 +9,8 @@ import Combine
 import CoreLocation
 import Foundation
 
+/// Holds the state of the upload form (Drop tab) and hands the finished
+/// form off to `SongUploadService` when the user hits Upload.
 @MainActor
 final class SongUploadViewModel: ObservableObject {
     @Published var songName = ""
@@ -27,12 +29,16 @@ final class SongUploadViewModel: ObservableObject {
         self.uploadService = uploadService
     }
 
+    /// True only when the form is complete enough to submit — this is what
+    /// enables/disables the Upload button as you type.
     var canUpload: Bool {
         !songName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && selectedFileURL != nil
             && !isUploading
     }
 
+    /// Records which audio file the user picked (or why picking failed).
+    /// Runs when the system file picker closes.
     func handleFileImport(_ result: Result<URL, any Error>) {
         do {
             let fileURL = try result.get()
@@ -44,6 +50,10 @@ final class SongUploadViewModel: ObservableObject {
         }
     }
 
+    /// Validates the form and uploads: audio file to Storage, then the song
+    /// row (pinned at `location`) to the database. Runs on "Upload Song".
+    /// Example: standing in a park with "my-demo.mp3" picked → that spot
+    /// becomes the song's drop point on everyone's map.
     func upload(at location: CLLocation?) async {
         guard !isUploading else { return }
 

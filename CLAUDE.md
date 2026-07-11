@@ -21,8 +21,18 @@ architecture unilaterally.
 * Auth uses Supabase Auth's `auth.users` table plus a public mirror table:
   `auth.users.id` -> `public.app_users.id` -> `public.song.user_id`.
   One app user can own many songs.
-* The map reads via a `songs_near(lat, lng, search_radius_m)` RPC that returns
-  pins + distance + an `in_range` flag.  *(planned — not built yet)*
+* The map reads via the `songs_near(user_lat, user_lng, search_radius_m)` RPC,
+  which returns pins + distance + an `in_range` flag, nearest first.
+  `search_radius_m` defaults to 20,000,000 (≈ the whole planet = all songs).
+* `get_song_access(song_id, lat, lng)` is the server-side distance gate: it
+  returns a song's `storage_path` only when the caller is within that song's
+  `radius_m`. Both RPCs are mirrored in
+  `supabase/migrations/20260711000000_songs_near_and_access.sql`.
+* Playback goes through the `song-access` Edge Function (deployed; source
+  mirrored in `supabase/functions/song-access/song-access.ts`): it verifies
+  the caller's JWT, runs `get_song_access`, and mints a 5-minute signed URL
+  with the service-role client. The app downloads audio bytes from that URL —
+  never from Storage directly.
 * Audio files live in the private `song` Storage bucket; `song.storage_path`
   points at them.
 * Upload MVP is now built in the iOS app:
@@ -31,6 +41,14 @@ architecture unilaterally.
   * app uploads to Storage path `{auth.uid()}/{uuid}.{ext}` in bucket `song`
   * app calls `public.create_song(...)` to create the `song` row
   * the drop location is the user's current CoreLocation coordinate
+* Map + library MVP is now built in the iOS app (three tabs: Map / Library / Drop):
+  * Map tab shows every song from `songs_near` as a tappable square; tapping
+    opens a card and plays via the `song-access` Edge Function → signed URL
+    (in-range songs only; the distance check is server-side and unbypassable)
+  * Download saves the audio file on-device + a SwiftData `DownloadedSong` row
+  * Library tab lists downloads and replays them offline from disk
+  * every tunable (search radius, square size/colors, auto-play…) lives in
+    `Layer/Layer/LayerConfig.swift`
 
 ## Critical conventions — get these wrong and things break silently
 
@@ -45,10 +63,13 @@ architecture unilaterally.
 * **Upload path is user-scoped.** Client uploads should stay under
   `{auth.uid()}/...` in the private `song` bucket. The Storage insert policy
   and `create_song` RPC both enforce that convention.
-* **The download location gate is server-side and NOT built yet.** Any current
-  in-range check is client-side and advisory only — never treat it as security.
-  The real gate (an Edge Function / RPC handing back a short-lived signed URL
-  after a server-side distance check) is deferred.
+* **The `song` bucket has NO select policy — on purpose. Never add one.**
+  Clients can't read Storage directly; the only path to audio bytes is the
+  `song-access` Edge Function, whose signed URLs are minted with the
+  service-role key *after* the server-side distance check. A broad
+  "authenticated can read bucket song" policy would let any signed-in user
+  bypass the location gate entirely. If playback breaks, debug the Edge
+  Function — don't reach for a Storage policy.
 * PostGIS is installed in the `extensions` schema, so `geography(...)` works
   unprefixed. Do not prefix with `gis.`.
 * Geography columns and values can't be created or edited in the Table Editor
